@@ -1,61 +1,80 @@
 import selenium
 from selenium import webdriver
 from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.common.action_chains import ActionChains
 import pandas as pd
-import datetime
-from datetime import time, timedelta
 import bs4
 from bs4 import BeautifulSoup as bs
 import time
-import queue
+#import matplotlib
 
-# build queue for days to be scraped
-q = queue.Queue(maxsize=0)
-
-
-# TODO MAKE THIS CONFIGURABLE ON GUI?
-#start = datetime.datetime(2019, 3, 20)
-#stop = datetime.datetime(2019, 3, 23)
-#index = pd.date_range(start, stop)
-#ts = pd.Series()
-#q.put(index)
 
 #Configure webdriver
 browser = webdriver.Safari()
 browser.implicitly_wait(6)
-url = f'https://stats.premierlacrosseleague.com/games'
+url = f'https://stats.premierlacrosseleague.com/pll-team-table'
 browser.get(url)
 # give the browser time to wait
 time.sleep(3)
 html = browser.page_source.encode("utf-8")
 # convert to beautiful soup object
 soup = bs(html, 'html.parser')
-# print the current day
-gameLinks = soup.find_all('a', {'class':'jss15'})
-
-# iterate over each link
-for link in range(len(gameLinks)):
+# initialize Stats List
+Stats = []
+teamStats = soup.find_all('td', class_= 'MuiTableCell-root MuiTableCell-body jss351 MuiTableCell-alignCenter MuiTableCell-sizeSmall')
+for teams in range(1,8):
     try:
-        partialLink = gameLinks[link]['href']
-        browser.get(url[:-6] + partialLink)
-        browser.implicitly_wait(6)
-        # grab all of the team data
-        # table stats --> <td class="MuiTableCell-root MuiTableCell-body jss2409 MuiTableCell-alignCenter MuiTableCell-sizeSmall">9</td>
-        # team name --> <a href="/teams/RED">RED</a>
-        # S	1G	2G	A	Sh	Sh%	SOG	TO	CT	GB	FO	FO%	Sv	Sv%	SA	SAA	PEN	PIM	PP%	PP	PPSh	PK%	PK
-        html = browser.page_source.encode("utf-8")
-        # convert to beautiful soup object
-        soup = bs(html, 'html.parser')
-        teamStats = soup.find_all('td', class_ = 'MuiTableCell-root MuiTableCell-body jss187 MuiTableCell-alignCenter MuiTableCell-sizeSmall')
-        teamNamesTemp = soup.find_all('a', class_ = 'href')
-        TeamNameHome = teamNamesTemp[0].text
-        TeamNameAway = teamNamesTemp[1].text
-    except:
-        print("Link Invalid")
-        continue
+        game = {}
+        # Home Team
+        # temporary
+        if teams == 1:
+            game['Team'] = 'Whipsnakes'
+        elif teams == 2:
+            game['Team'] = 'Chrome'
+        elif teams == 3:
+            game['Team'] = 'Archers'
+        elif teams == 4:
+            game['Team'] = 'Redwoods'
+        elif teams == 5:
+            game['Team'] = 'Waterdogs'
+        elif teams == 6:
+            game['Team'] = 'Atlas'
+        elif teams == 7:
+            game['Team'] = 'Chaos'
     
+        game['Wins'] = int(teamStats[0].text)
+        game['Losses'] = int(teamStats[1].text)
+        game['Scores'] = int(teamStats[2].text)
+        game['1G'] = int(teamStats[3].text)
+        game['2G'] = int(teamStats[4].text)
+        game['A'] = int(teamStats[5].text)
+        game['Sh'] = int(teamStats[6].text)
+        game['Sh%'] = int(teamStats[7].text[:-1])
+        game['2-Point Sh%'] = int(teamStats[8].text[:-1])
+        game['SOG'] = int(teamStats[9].text)
+        game['TO'] = int(teamStats[10].text)
+        game['CT'] = int(teamStats[11].text)
+        game['GB'] = int(teamStats[12].text)
+        game['FO'] = int(teamStats[13].text[0:1]) / int(teamStats[13].text[3:])
+        game['FO%'] = int(teamStats[14].text[:-1])
+        game['SV'] = int(teamStats[15].text)
+        game['SV%'] = int(teamStats[16].text[:-1])
+        game['SA'] = int(teamStats[17].text)
+        game['SAA'] = float(teamStats[18].text[:-1])
+        game['PEN'] = int(teamStats[19].text)
+        game['PIM'] = float(teamStats[20].text)
+        game['PP%'] = int(teamStats[21].text[:-1])
+        game['PP'] = int(teamStats[22].text[0]) / int(teamStats[22].text[2:])
+        game['PPSh'] = int(teamStats[23].text)
+        game['PK%'] = int(teamStats[24].text[:-1])
+        game['PK'] = int(teamStats[25].text[0]) / int(teamStats[25].text[2:])
+        Stats.append(game)
+        # Delete the info we just used from soup
+        teamStats = teamStats[26:]
+    except:
+        print("Something went wrong!!!")
+        continue
 
-
-
+stats_df = pd.DataFrame(Stats)
+stats_df.to_csv('~/Documents/Code/PLLModel/Stats.csv',)
+print(Stats)
 browser.quit()
